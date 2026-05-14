@@ -1,15 +1,52 @@
+version: '3.8'
+
 services:
-  redis:
-    image: redis
+  outline:
+    image: outlinewiki/outline:latest
     ports:
-      - "127.0.0.1:6379:6379"
-    user: "redis:redis"
-  postgres:
-    image: postgres
-    ports:
-      - "127.0.0.1:5432:5432"
+      - "3000:3000"
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
-      POSTGRES_DB: outline
-    user: "postgres:postgres"
+      - NODE_ENV=production
+    env_file: .env # 將 outline.env 改成 .env
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    networks:
+      - outline-net
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=outline
+      - POSTGRES_PASSWORD=outline123 # 請記得改密碼
+      - POSTGRES_DB=outline
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - outline-net
+
+  redis:
+    image: redis:alpine
+    volumes:
+      - ./data/redis:/data
+    networks:
+      - outline-net
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin   # MinIO 帳號
+      - MINIO_ROOT_PASSWORD=minioadmin123 # MinIO 密碼
+    ports:
+      - "9000:9000" # S3 API port
+      - "9001:9001" # Web 管理介面 port
+    volumes:
+      - ./data/minio:/data
+    networks:
+      - outline-net
+
+networks:
+  outline-net:
+    driver: bridge
